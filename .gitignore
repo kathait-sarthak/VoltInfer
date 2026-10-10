@@ -1,0 +1,32 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data & reports
+bench_report.json
+bench_results.json
+*.log
+
+# Distribution & Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Large Model weights
+*.gguf
+*.bin
+*.safetensors
+*.pt
+
+# Environment & IDEs
+.env
+.venv
+env/
+venv/
+.vscode/
+.idea/

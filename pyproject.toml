@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voltinfer"
+version = "1.0.0"
+description = "Energy-Aware, Hardware-in-the-Loop LLM Adaptive Runtime & Proxy Middleware"
+readme = "README.md"
+authors = [
+    { name = "VoltInfer Team" }
+]
+license = { text = "MIT" }
+keywords = ["llm", "inference", "green-ai", "hardware-in-the-loop", "energy-efficiency", "transformer", "gguf"]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "psutil>=5.9.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0"
+]
+llamacpp = [
+    "llama-cpp-python>=0.2.70"
+]
+transformers = [
+    "torch>=2.0.0",
+    "transformers>=4.36.0",
+    "accelerate>=0.25.0"
+]
+
+[project.scripts]
+voltinfer = "engine.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/kathait-sarthak/VoltInfer"
+Documentation = "https://github.com/kathait-sarthak/VoltInfer#readme"
+Repository = "https://github.com/kathait-sarthak/VoltInfer.git"
+
+[tool.setuptools.packages.find]
+include = ["engine*", "dashboard*", "bench*"]
+exclude = ["tests*", "docs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

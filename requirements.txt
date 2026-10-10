@@ -1,0 +1,12 @@
+# VoltInfer Dependencies
+# Core engine uses Python 3.10+ standard libraries (http.server, json, time, threading)
+
+# System telemetry monitor:
+psutil>=5.9.0
+
+# Optional: For loading real Qwen 4B / GGUF model weights from pendrive/disk:
+# pip install llama-cpp-python
+# llama-cpp-python>=0.2.70
+
+# Optional: For PyTorch / HuggingFace Transformers model weights:
+# pip install torch transformers accelerate

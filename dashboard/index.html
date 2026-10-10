@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoltInfer — Hardware-in-the-Loop LLM Adaptive Runtime</title>
+  <!-- Google Fonts & FontAwesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i class="fa-solid fa-bolt-lightning"></i>
+      </div>
+      <div class="logo-text">
+        <h1>VoltInfer <span class="badge-tag">Adaptive Runtime</span></h1>
+        <p class="subtitle">Hardware-in-the-Loop LLM Layer Modulation & Energy Proxy</p>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-indicator online">
+        <span class="pulse-dot"></span>
+        <span id="server-status-text">Proxy Active (Port 8000)</span>
+      </div>
+      <div class="mode-badge" id="telemetry-mode-badge">
+        <i class="fa-solid fa-microchip"></i> <span id="mode-text">REALTIME MON</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Model Loader Info Bar -->
+  <div class="model-banner-bar" id="model-banner">
+    <div class="model-info-item">
+      <i class="fa-solid fa-hard-drive glow-cyan"></i>
+      <span>Active Model Path: <strong id="model-path-display">D:\qwen3-4b-thinking-2507.Q4_K_M.gguf</strong></span>
+    </div>
+    <div class="model-info-item">
+      <i class="fa-solid fa-microchip glow-green"></i>
+      <span>Backend Architecture: <strong id="model-backend-display">VoltInfer Adaptive Engine</strong></span>
+    </div>
+    <div class="model-info-item">
+      <i class="fa-solid fa-bolt glow-yellow"></i>
+      <span>Max Depth: <strong id="model-layers-display">32 Layers</strong></span>
+    </div>
+  </div>
+
+  <main class="dashboard-container">
+
+    <!-- Row 1: Realtime Telemetry Cards -->
+    <section class="telemetry-grid">
+      
+      <!-- Card 1: Silicon Temperature & Headroom -->
+      <div class="glass-card telemetry-card" id="temp-card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-temperature-high"></i> Silicon Core Temp</span>
+          <span class="card-metric-badge" id="thermal-headroom-badge">100% Headroom</span>
+        </div>
+        <div class="metric-body">
+          <div class="metric-value-container">
+            <span class="metric-number" id="temp-value">42.0</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-fill temp-fill" id="temp-bar" style="width: 40%;"></div>
+          </div>
+          <div class="metric-footer">
+            <span>Idle: 38°C</span>
+            <span id="thermal-status">Cool Headroom</span>
+            <span>Throttle: 85°C</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Power Draw & Joules -->
+      <div class="glass-card telemetry-card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-plug-circle-bolt"></i> Realtime Power Draw</span>
+          <span class="card-metric-badge energy-badge" id="power-mode-badge">Standard AC</span>
+        </div>
+        <div class="metric-body">
+          <div class="metric-value-container">
+            <span class="metric-number glow-green" id="power-value">65.4</span>
+            <span class="metric-unit">Watts</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-fill power-fill" id="power-bar" style="width: 35%;"></div>
+          </div>
+          <div class="metric-footer">
+            <span>Thermal Leakage: <strong id="leakage-value">0.0 W</strong></span>
+            <span>Energy Saved: <strong id="total-saved-callout" class="glow-green">47%</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: CPU / GPU Load -->
+      <div class="glass-card telemetry-card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-gauge-high"></i> System Load</span>
+          <span class="card-metric-badge">Dual Monitor</span>
+        </div>
+        <div class="dual-meters">
+          <div class="meter-group">
+            <div class="meter-label"><span>CPU Utilization</span><strong id="cpu-value">25%</strong></div>
+            <div class="progress-bar-container">
+              <div class="progress-fill cpu-fill" id="cpu-bar" style="width: 25%;"></div>
+            </div>
+          </div>
+          <div class="meter-group">
+            <div class="meter-label"><span>GPU Acceleration</span><strong id="gpu-value">35%</strong></div>
+            <div class="progress-bar-container">
+              <div class="progress-fill gpu-fill" id="gpu-bar" style="width: 35%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: RAM / VRAM State -->
+      <div class="glass-card telemetry-card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-memory"></i> Memory Pools</span>
+          <span class="card-metric-badge" id="battery-badge">AC Connected</span>
+        </div>
+        <div class="dual-meters">
+          <div class="meter-group">
+            <div class="meter-label"><span>System RAM</span><strong id="ram-value">7.1 / 16.0 GB</strong></div>
+            <div class="progress-bar-container">
+              <div class="progress-fill ram-fill" id="ram-bar" style="width: 44%;"></div>
+            </div>
+          </div>
+          <div class="meter-group">
+            <div class="meter-label"><span>VRAM Allocation</span><strong id="vram-value">4.2 / 16.0 GB</strong></div>
+            <div class="progress-bar-container">
+              <div class="progress-fill vram-fill" id="vram-bar" style="width: 26%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Row 2: Dynamic Layer Modulation Pipeline -->
+    <section class="glass-card layer-visualizer-section">
+      <div class="section-header">
+        <div>
+          <h2><i class="fa-solid fa-layer-group"></i> Dynamic Layer Modulation Architecture</h2>
+          <p class="section-desc">Real-time Transformer Depth Scaling, Precision Quantization & KV Head Pruning</p>
+        </div>
+        <div class="layer-stats-pills">
+          <span class="pill" id="active-layers-pill"><i class="fa-solid fa-bars-staggered"></i> Active Layers: <strong>32 / 32</strong></span>
+          <span class="pill" id="quant-pill"><i class="fa-solid fa-microchip"></i> Precision: <strong>FP16</strong></span>
+          <span class="pill" id="kv-pill"><i class="fa-solid fa-sliders"></i> Active KV Heads: <strong>32 / 32</strong></span>
+          <span class="pill pill-green" id="path-mode-pill"><i class="fa-solid fa-circle-check"></i> <strong>Full Depth Path</strong></span>
+        </div>
+      </div>
+
+      <!-- Grid of 32 Transformer Layer Execution Blocks -->
+      <div class="layers-grid" id="layers-container">
+        <!-- Javascript dynamically populates 32 blocks here -->
+      </div>
+
+      <div class="layer-legend">
+        <div class="legend-item"><span class="legend-box active-fp16"></span> High Precision (FP16)</div>
+        <div class="legend-item"><span class="legend-box active-int8"></span> Quantized (INT8)</div>
+        <div class="legend-item"><span class="legend-box active-int4"></span> Fast Path (INT4)</div>
+        <div class="legend-item"><span class="legend-box early-exit-badge"></span> Early Exit Gate</div>
+        <div class="legend-item"><span class="legend-box skipped-layer"></span> Skipped / Converted Layer</div>
+      </div>
+    </section>
+
+    <!-- Row 3: Split Layout - Controls & Benchmark Playground -->
+    <section class="main-split-grid">
+
+      <!-- Left Column: Hardware Stress & Simulation Controls -->
+      <div class="glass-card controls-card">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-sliders"></i> Hardware Thermal Stress Simulator</h3>
+        </div>
+        <p class="card-desc">Inject artificial thermal or power pressure to observe real-time layer shedding.</p>
+
+        <div class="preset-buttons">
+          <button class="btn btn-preset" onclick="setProfile('PEAK_PERFORMANCE')">
+            <i class="fa-solid fa-snowflake"></i> Cool (36°C)
+          </button>
+          <button class="btn btn-preset" onclick="setProfile('NORMAL')">
+            <i class="fa-solid fa-leaf"></i> Normal (48°C)
+          </button>
+          <button class="btn btn-preset btn-warning" onclick="setProfile('THERMAL_THROTTLING')">
+            <i class="fa-solid fa-fire"></i> Hot (82°C)
+          </button>
+          <button class="btn btn-preset btn-danger" onclick="setProfile('BATTERY_SAVER')">
+            <i class="fa-solid fa-battery-quarter"></i> Low Battery
+          </button>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Manual Core Temperature Override</span>
+            <strong id="slider-temp-val">48.0 °C</strong>
+          </div>
+          <input type="range" id="temp-slider" min="30" max="95" value="48" step="0.5" oninput="updateTempSlider(this.value)">
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn btn-secondary" onclick="resetTelemetry()">
+            <i class="fa-solid fa-rotate-left"></i> Reset to Live Hardware Reader
+          </button>
+          <button class="btn btn-accent" onclick="runAutomatedBenchmark()">
+            <i class="fa-solid fa-chart-line"></i> Run Side-by-Side Suite
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Inference Playground -->
+      <div class="glass-card inference-card">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-terminal"></i> OpenAI-Compatible Proxy Playground</h3>
+        </div>
+
+        <div class="prompt-form">
+          <div class="form-group">
+            <label for="prompt-input">Input Prompt (Evaluates Token Entropy):</label>
+            <textarea id="prompt-input" rows="3" placeholder="Enter prompt text here...">Explain how transformer self-attention handles sequence complexity and optimize code def calculate_loss():</textarea>
+          </div>
+
+          <div class="form-row">
+            <button class="btn btn-primary" id="btn-submit-prompt" onclick="submitPrompt()">
+              <i class="fa-solid fa-play"></i> Execute VoltInfer Request
+            </button>
+          </div>
+        </div>
+
+        <!-- Output & Telemetry Comparison Card -->
+        <div class="response-container hidden" id="response-container">
+          <div class="response-header">
+            <span>Generated Response & Micro-Telemetry Breakdown</span>
+            <span class="badge-mode" id="res-mode-badge">Fast Path</span>
+          </div>
+
+          <div class="response-text" id="response-text-box"></div>
+
+          <!-- Investor Side-by-Side Micro Delta Comparison -->
+          <div class="comparison-grid">
+            
+            <div class="comp-card baseline-card">
+              <div class="comp-title"><i class="fa-solid fa-server"></i> Standard Runtime (Baseline)</div>
+              <div class="comp-stat"><span>Layer Execution:</span> <strong>32 / 32 Full Layers</strong></div>
+              <div class="comp-stat"><span>Precision:</span> <strong>FP16 High Precision</strong></div>
+              <div class="comp-stat"><span>KV Heads:</span> <strong>32 / 32 Active Heads</strong></div>
+              <div class="comp-stat"><span>Latency:</span> <strong id="base-latency-val">0.450 s</strong></div>
+              <div class="comp-stat"><span>Power Draw:</span> <strong id="base-power-val">105.0 W</strong></div>
+              <div class="comp-stat"><span>Energy Consumed:</span> <strong id="base-energy-val">47.25 Joules</strong></div>
+            </div>
+
+            <div class="comp-card volt-card">
+              <div class="comp-title"><i class="fa-solid fa-bolt glow-green"></i> VoltInfer Adaptive Runtime</div>
+              <div class="comp-stat"><span>Layer Execution:</span> <strong id="volt-layers-val" class="glow-cyan">18 / 32 Layers</strong></div>
+              <div class="comp-stat"><span>Precision:</span> <strong id="volt-quant-val" class="glow-green">INT8 Quantized</strong></div>
+              <div class="comp-stat"><span>KV Heads:</span> <strong id="volt-kv-val">16 / 32 Heads</strong></div>
+              <div class="comp-stat"><span>Latency:</span> <strong id="volt-latency-val" class="glow-green">0.145 s</strong></div>
+              <div class="comp-stat"><span>Power Draw:</span> <strong id="volt-power-val" class="glow-green">66.5 W</strong></div>
+              <div class="comp-stat"><span>Energy Consumed:</span> <strong id="volt-energy-val" class="glow-green">9.64 Joules</strong></div>
+            </div>
+
+          </div>
+
+          <!-- Minute Micro Metrics Deltas Banner -->
+          <div class="delta-callout-banner">
+            <div class="delta-item">
+              <span class="delta-label">Latency Reduction Δt</span>
+              <span class="delta-value glow-green" id="delta-latency">-0.305s (-67.8%)</span>
+            </div>
+            <div class="delta-item">
+              <span class="delta-label">Power Saved ΔP</span>
+              <span class="delta-value glow-green" id="delta-power">-38.5 W (-36.7%)</span>
+            </div>
+            <div class="delta-item">
+              <span class="delta-label">Energy Conserved ΔE</span>
+              <span class="delta-value glow-green" id="delta-joules">-37.61 Joules (79.6% Saved)</span>
+            </div>
+            <div class="delta-item">
+              <span class="delta-label">Thermal Relief ΔT</span>
+              <span class="delta-value glow-cyan" id="delta-thermal">-7.5 °C Heat Avoided</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>VoltInfer v1.0 • Built for Energy-Aware Hardware-in-the-Loop LLM Inference Runtime • OpenAI API Compatible</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
