@@ -1,4 +1,5 @@
 # VoltInfer ⚡
+
 ### Energy-Aware, Hardware-in-the-Loop LLM Adaptive Runtime & Proxy Middleware
 
 [![CI](https://github.com/kathait-sarthak/VoltInfer/actions/workflows/ci.yml/badge.svg)](https://github.com/kathait-sarthak/VoltInfer/actions)
@@ -48,12 +49,12 @@ Running 4B+ parameter LLMs on edge devices, laptops, and local developer worksta
 
 ## 📊 Benchmark Metrics (Qwen 3/4B GGUF Model)
 
-| Scenario | Core Temp (°C) | Executed Layers | Precision | KV Heads | Latency | Energy Saved (%) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Cool Headroom** | 36.0 °C | 32 / 36 | FP16 | 28 / 32 | 0.010s | **95.0% Saved** |
-| **Normal Operating** | 48.0 °C | 30 / 36 | INT8 | 26 / 32 | 0.010s | **95.0% Saved** |
-| **Thermal Throttling** | 82.5 °C | 22 / 36 | INT4 | 16 / 32 | 0.010s | **95.0% Saved** |
-| **Low Battery Saver** | 65.0 °C | 23 / 36 | INT8 | 18 / 32 | 0.010s | **95.0% Saved** |
+| Scenario               | Core Temp (°C) | Executed Layers | Precision | KV Heads | Latency | Energy Saved (%) |
+| :--------------------- | :------------: | :-------------: | :-------: | :------: | :-----: | :--------------: |
+| **Cool Headroom**      |    36.0 °C     |     32 / 36     |   FP16    | 28 / 32  | 0.010s  | **95.0% Saved**  |
+| **Normal Operating**   |    48.0 °C     |     30 / 36     |   INT8    | 26 / 32  | 0.010s  | **95.0% Saved**  |
+| **Thermal Throttling** |    82.5 °C     |     22 / 36     |   INT4    | 16 / 32  | 0.010s  | **95.0% Saved**  |
+| **Low Battery Saver**  |    65.0 °C     |     23 / 36     |   INT8    | 18 / 32  | 0.010s  | **95.0% Saved**  |
 
 - **Total Energy Conserved**: **1,158.96 Joules** (**98.8% Saved**)
 - **Max Execution Speedup**: Up to **64.8x acceleration** during thermal throttling stress.
@@ -62,10 +63,25 @@ Running 4B+ parameter LLMs on edge devices, laptops, and local developer worksta
 
 ## 🚀 Quick Start & Software Usage
 
+### Download the Windows Demo
+
+**[Download VoltInfer Demo for Windows](https://github.com/kathait-sarthak/VoltInfer/releases/latest/download/voltinfer-windows-x64.exe)** (Windows 10/11, x64). No Python installation is needed. [View all releases](https://github.com/kathait-sarthak/VoltInfer/releases).
+
+Open PowerShell in the download folder and run:
+
+```powershell
+.\voltinfer-windows-x64.exe --help
+.\voltinfer-windows-x64.exe start
+```
+
+The executable includes the web dashboard and supports `start`, `bench`, `status`, and `app`. Each version tag pushed to GitHub builds and publishes this demo executable automatically.
+
 ### Option A: One-Click Desktop Software (Windows)
+
 Double-click **`run_voltinfer_gui.bat`** to start the native Desktop Control Center, or double-click **`run_voltinfer.bat`** to start the server and open the browser dashboard automatically!
 
 ### Option B: Install as Python Package & CLI
+
 ```bash
 git clone https://github.com/kathait-sarthak/VoltInfer.git
 cd VoltInfer
@@ -73,6 +89,7 @@ pip install -e .
 ```
 
 Now you can use the `voltinfer` command anywhere:
+
 ```bash
 # Start proxy server and launch web dashboard
 voltinfer start
@@ -88,6 +105,7 @@ voltinfer status
 ```
 
 ### Option C: Run with Python Directly
+
 ```bash
 python -m engine.cli start --open-browser
 ```
@@ -97,9 +115,11 @@ python -m engine.cli start --open-browser
 ## 🧪 Automated Tests
 
 Run the test suite with pytest:
+
 ```bash
 python -m pytest -v
 ```
+
 All 22 unit & integration tests pass with 100% test coverage.
 
 ---
@@ -118,7 +138,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   }'
 ```
 
-*Response includes standard OpenAI ChatCompletion structure plus extra `volt_infer_telemetry` energy breakdown.*
+_Response includes standard OpenAI ChatCompletion structure plus extra `volt_infer_telemetry` energy breakdown._
 
 ### `GET /v1/telemetry`
 
