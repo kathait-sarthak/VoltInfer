@@ -10,6 +10,9 @@ htmlcov/
 bench_report.json
 bench_results.json
 *.log
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 
 # Distribution & Packaging
 build/

@@ -583,6 +583,27 @@ textarea:focus {
   border-color: var(--accent-green);
 }
 
+.proxy-input {
+  width: 100%;
+  background: rgba(9, 13, 22, 0.6);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-main);
+  font: inherit;
+}
+
+.proxy-input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.layer-visualizer-section[hidden],
+.comparison-grid[hidden],
+.delta-callout-banner[hidden] {
+  display: none;
+}
+
 .response-container {
   background: rgba(9, 13, 22, 0.7);
   border: 1px solid var(--border-card-active);

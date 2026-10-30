@@ -153,14 +153,28 @@ class DynamicLayerModulator:
 
     def compute_hardware_pressure(self, state: HardwareState) -> float:
         """
-        Calculate unified hardware pressure P_H in [0.0, 1.0].
-        Combines thermal stress, CPU/GPU utilization, and battery state.
+        Calculate hardware pressure using available measured or explicitly simulated signals.
+        Estimated GPU and temperature metrics are excluded from the policy.
         """
-        # Thermal Pressure (1.0 - thermal_headroom)
-        thermal_pressure = 1.0 - state.thermal_headroom
+        # Ignore estimated thermal and GPU values; explicit simulation profiles remain usable.
+        has_measured_temperature = "temperature_c" not in state.estimated_metrics
+        has_measured_gpu = "gpu_utilization" not in state.estimated_metrics
+        has_measured_cpu = "cpu_utilization" not in state.estimated_metrics
+        thermal_pressure = (
+            1.0 - state.thermal_headroom if has_measured_temperature else 0.0
+        )
 
         # System Load Pressure
-        load_pressure = (state.cpu_utilization * 0.3 + state.gpu_utilization * 0.7) / 100.0
+        if has_measured_gpu and has_measured_cpu:
+            load_pressure = (
+                state.cpu_utilization * 0.3 + state.gpu_utilization * 0.7
+            ) / 100.0
+        elif has_measured_gpu:
+            load_pressure = state.gpu_utilization / 100.0
+        elif has_measured_cpu:
+            load_pressure = state.cpu_utilization / 100.0
+        else:
+            load_pressure = 0.0
 
         # Battery Pressure (High when battery is low and unplugged)
         battery_pressure = 0.0
@@ -172,8 +186,19 @@ class DynamicLayerModulator:
             else:
                 battery_pressure = 0.2
 
-        # Weighted hardware pressure formula
-        p_h = (thermal_pressure * 0.50 + load_pressure * 0.35 + battery_pressure * 0.15)
+        components = []
+        if has_measured_temperature:
+            components.append((0.50, thermal_pressure))
+        if has_measured_cpu or has_measured_gpu:
+            components.append((0.35, load_pressure))
+        if state.battery_percent is not None:
+            components.append((0.15, battery_pressure))
+        available_weight = sum(weight for weight, _ in components)
+        p_h = (
+            sum(weight * value for weight, value in components) / available_weight
+            if available_weight
+            else 0.0
+        )
         return round(max(0.0, min(1.0, p_h)), 3)
 
     def determine_modulation_profile(

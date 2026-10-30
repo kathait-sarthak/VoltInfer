@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoltInfer — Hardware-in-the-Loop LLM Adaptive Runtime</title>
+  <title>VoltInfer — Local LLM Proxy</title>
   <!-- Google Fonts & FontAwesome Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,8 +20,8 @@
         <i class="fa-solid fa-bolt-lightning"></i>
       </div>
       <div class="logo-text">
-        <h1>VoltInfer <span class="badge-tag">Adaptive Runtime</span></h1>
-        <p class="subtitle">Hardware-in-the-Loop LLM Layer Modulation & Energy Proxy</p>
+        <h1>VoltInfer <span class="badge-tag">Local LLM Proxy</span></h1>
+        <p class="subtitle">OpenAI-compatible forwarding, telemetry, and local adaptation</p>
       </div>
     </div>
 
@@ -40,15 +40,15 @@
   <div class="model-banner-bar" id="model-banner">
     <div class="model-info-item">
       <i class="fa-solid fa-hard-drive glow-cyan"></i>
-      <span>Active Model Path: <strong id="model-path-display">D:\qwen3-4b-thinking-2507.Q4_K_M.gguf</strong></span>
+      <span>LLM Endpoint: <strong id="model-path-display">Not configured</strong></span>
     </div>
     <div class="model-info-item">
       <i class="fa-solid fa-microchip glow-green"></i>
-      <span>Backend Architecture: <strong id="model-backend-display">VoltInfer Adaptive Engine</strong></span>
+      <span>Backend: <strong id="model-backend-display">Demo mode</strong></span>
     </div>
     <div class="model-info-item">
       <i class="fa-solid fa-bolt glow-yellow"></i>
-      <span>Max Depth: <strong id="model-layers-display">32 Layers</strong></span>
+      <span>Layer controls: <strong id="model-layers-display">Not available through generic API</strong></span>
     </div>
   </div>
 
@@ -60,7 +60,7 @@
       <!-- Card 1: Silicon Temperature & Headroom -->
       <div class="glass-card telemetry-card" id="temp-card">
         <div class="card-header">
-          <span class="card-title"><i class="fa-solid fa-temperature-high"></i> Silicon Core Temp</span>
+          <span class="card-title"><i class="fa-solid fa-temperature-high"></i> System Temperature (sensor or estimate)</span>
           <span class="card-metric-badge" id="thermal-headroom-badge">100% Headroom</span>
         </div>
         <div class="metric-body">
@@ -82,7 +82,7 @@
       <!-- Card 2: Power Draw & Joules -->
       <div class="glass-card telemetry-card">
         <div class="card-header">
-          <span class="card-title"><i class="fa-solid fa-plug-circle-bolt"></i> Realtime Power Draw</span>
+          <span class="card-title"><i class="fa-solid fa-plug-circle-bolt"></i> Estimated System Power</span>
           <span class="card-metric-badge energy-badge" id="power-mode-badge">Standard AC</span>
         </div>
         <div class="metric-body">
@@ -94,8 +94,8 @@
             <div class="progress-fill power-fill" id="power-bar" style="width: 35%;"></div>
           </div>
           <div class="metric-footer">
-            <span>Thermal Leakage: <strong id="leakage-value">0.0 W</strong></span>
-            <span>Energy Saved: <strong id="total-saved-callout" class="glow-green">47%</strong></span>
+            <span>Thermal Leakage (estimate): <strong id="leakage-value">0.0 W</strong></span>
+            <span>Energy Saved: <strong id="total-saved-callout" class="glow-green">Demo estimate</strong></span>
           </div>
         </div>
       </div>
@@ -103,7 +103,7 @@
       <!-- Card 3: CPU / GPU Load -->
       <div class="glass-card telemetry-card">
         <div class="card-header">
-          <span class="card-title"><i class="fa-solid fa-gauge-high"></i> System Load</span>
+          <span class="card-title"><i class="fa-solid fa-gauge-high"></i> System Load (GPU estimated)</span>
           <span class="card-metric-badge">Dual Monitor</span>
         </div>
         <div class="dual-meters">
@@ -114,7 +114,7 @@
             </div>
           </div>
           <div class="meter-group">
-            <div class="meter-label"><span>GPU Acceleration</span><strong id="gpu-value">35%</strong></div>
+            <div class="meter-label"><span>GPU Utilization (estimated)</span><strong id="gpu-value">35%</strong></div>
             <div class="progress-bar-container">
               <div class="progress-fill gpu-fill" id="gpu-bar" style="width: 35%;"></div>
             </div>
@@ -125,7 +125,7 @@
       <!-- Card 4: RAM / VRAM State -->
       <div class="glass-card telemetry-card">
         <div class="card-header">
-          <span class="card-title"><i class="fa-solid fa-memory"></i> Memory Pools</span>
+          <span class="card-title"><i class="fa-solid fa-memory"></i> Memory Pools (VRAM estimated)</span>
           <span class="card-metric-badge" id="battery-badge">AC Connected</span>
         </div>
         <div class="dual-meters">
@@ -136,7 +136,7 @@
             </div>
           </div>
           <div class="meter-group">
-            <div class="meter-label"><span>VRAM Allocation</span><strong id="vram-value">4.2 / 16.0 GB</strong></div>
+            <div class="meter-label"><span>VRAM (estimated)</span><strong id="vram-value">4.2 / 16.0 GB</strong></div>
             <div class="progress-bar-container">
               <div class="progress-fill vram-fill" id="vram-bar" style="width: 26%;"></div>
             </div>
@@ -147,11 +147,11 @@
     </section>
 
     <!-- Row 2: Dynamic Layer Modulation Pipeline -->
-    <section class="glass-card layer-visualizer-section">
+    <section class="glass-card layer-visualizer-section" id="layer-visualizer-section">
       <div class="section-header">
         <div>
-          <h2><i class="fa-solid fa-layer-group"></i> Dynamic Layer Modulation Architecture</h2>
-          <p class="section-desc">Real-time Transformer Depth Scaling, Precision Quantization & KV Head Pruning</p>
+          <h2><i class="fa-solid fa-layer-group"></i> Demo-only Layer Policy Preview</h2>
+          <p class="section-desc">Synthetic visualization only; generic LLM APIs do not expose internal transformer layers.</p>
         </div>
         <div class="layer-stats-pills">
           <span class="pill" id="active-layers-pill"><i class="fa-solid fa-bars-staggered"></i> Active Layers: <strong>32 / 32</strong></span>
@@ -183,7 +183,7 @@
         <div class="section-header">
           <h3><i class="fa-solid fa-sliders"></i> Hardware Thermal Stress Simulator</h3>
         </div>
-        <p class="card-desc">Inject artificial thermal or power pressure to observe real-time layer shedding.</p>
+        <p class="card-desc">Inject synthetic telemetry to preview demo policy behavior; upstream model layers are not changed.</p>
 
         <div class="preset-buttons">
           <button class="btn btn-preset" onclick="setProfile('PEAK_PERFORMANCE')">
@@ -226,7 +226,20 @@
 
         <div class="prompt-form">
           <div class="form-group">
-            <label for="prompt-input">Input Prompt (Evaluates Token Entropy):</label>
+            <label for="model-name-input">Model name configured on the upstream server:</label>
+            <input id="model-name-input" class="proxy-input" value="qwen3:4b" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="adaptive-profile">Optional output-token profile:</label>
+            <select id="adaptive-profile" class="proxy-input">
+              <option value="off">Off (pass request unchanged)</option>
+              <option value="full">Full (100% of requested limit)</option>
+              <option value="balanced">Balanced (75% cap)</option>
+              <option value="efficient">Efficient (50% cap)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prompt-input">Prompt:</label>
             <textarea id="prompt-input" rows="3" placeholder="Enter prompt text here...">Explain how transformer self-attention handles sequence complexity and optimize code def calculate_loss():</textarea>
           </div>
 
@@ -247,7 +260,7 @@
           <div class="response-text" id="response-text-box"></div>
 
           <!-- Investor Side-by-Side Micro Delta Comparison -->
-          <div class="comparison-grid">
+          <div class="comparison-grid" id="comparison-grid">
             
             <div class="comp-card baseline-card">
               <div class="comp-title"><i class="fa-solid fa-server"></i> Standard Runtime (Baseline)</div>
@@ -272,7 +285,7 @@
           </div>
 
           <!-- Minute Micro Metrics Deltas Banner -->
-          <div class="delta-callout-banner">
+          <div class="delta-callout-banner" id="delta-callout-banner">
             <div class="delta-item">
               <span class="delta-label">Latency Reduction Δt</span>
               <span class="delta-value glow-green" id="delta-latency">-0.305s (-67.8%)</span>
@@ -300,7 +313,7 @@
   </main>
 
   <footer class="footer">
-    <p>VoltInfer v1.0 • Built for Energy-Aware Hardware-in-the-Loop LLM Inference Runtime • OpenAI API Compatible</p>
+    <p>VoltInfer • Local OpenAI-compatible proxy with telemetry and optional adaptive output profiles</p>
   </footer>
 
   <script src="app.js"></script>

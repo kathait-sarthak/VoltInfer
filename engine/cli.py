@@ -22,7 +22,15 @@ def start_server_command(args: argparse.Namespace) -> None:
     print("   ⚡ VoltInfer: Energy-Aware Adaptive Runtime Proxy ⚡")
     print("=====================================================================")
     
-    server = VoltInferProxyServer(host=args.host, port=args.port, model_path=args.model_path)
+    server = VoltInferProxyServer(
+        host=args.host,
+        port=args.port,
+        model_path=args.model_path,
+        upstream_url=args.upstream_url,
+        upstream_api_key=os.environ.get("VOLTINFER_UPSTREAM_API_KEY"),
+        adaptive=args.adaptive,
+        learning_enabled=args.learning_enabled,
+    )
     server.start(block=False)
     
     dashboard_url = f"http://{args.host}:{args.port}"
@@ -30,6 +38,13 @@ def start_server_command(args: argparse.Namespace) -> None:
     print(f"[+] OpenAI Endpoint:   {dashboard_url}/v1/chat/completions")
     print(f"[+] Web Dashboard:     {dashboard_url}/\n")
     
+    if server.upstream:
+        print(f"[+] LLM upstream:     {server.upstream.base_url}")
+        if args.adaptive:
+            print("[+] Adaptive profiles: enabled (feedback guided)")
+    else:
+        print("[!] No upstream configured; inference endpoints return demo responses.")
+
     if args.open_browser:
         time.sleep(0.5)
         print("[+] Opening Web Dashboard in default browser...")
@@ -92,6 +107,23 @@ def main():
     start_parser.add_argument("--host", default="127.0.0.1", help="Host IP to bind (default: 127.0.0.1)")
     start_parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
     start_parser.add_argument("--model-path", "-m", default=None, help="Path to local GGUF or PyTorch model weights")
+    start_parser.add_argument(
+        "--upstream-url",
+        default=os.environ.get("VOLTINFER_UPSTREAM_URL"),
+        help="OpenAI-compatible API base URL, e.g. http://localhost:11434/v1",
+    )
+    start_parser.add_argument(
+        "--adaptive",
+        action="store_true",
+        help="Enable feedback-guided max-token profiles for supported requests",
+    )
+    start_parser.add_argument(
+        "--no-learning",
+        dest="learning_enabled",
+        action="store_false",
+        default=True,
+        help="Disable local request metrics and feedback storage",
+    )
     start_parser.add_argument("--open-browser", "-b", action="store_true", default=True, help="Auto-open browser dashboard (default: True)")
     start_parser.add_argument("--no-browser", dest="open_browser", action="store_false", help="Do not open browser")
 
@@ -116,6 +148,9 @@ def main():
             args.port = 8000
             args.model_path = None
             args.open_browser = True
+            args.upstream_url = os.environ.get("VOLTINFER_UPSTREAM_URL")
+            args.adaptive = False
+            args.learning_enabled = True
         start_server_command(args)
     elif args.command == "bench":
         benchmark_command(args)

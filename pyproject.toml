@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voltinfer"
-version = "1.0.0"
-description = "Energy-Aware, Hardware-in-the-Loop LLM Adaptive Runtime & Proxy Middleware"
+version = "1.1.0"
+description = "Local OpenAI-compatible LLM proxy with private feedback-guided output profiles"
 readme = "README.md"
 authors = [
     { name = "VoltInfer Team" }

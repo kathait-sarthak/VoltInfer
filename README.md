@@ -1,84 +1,71 @@
 # VoltInfer ⚡
 
-### Energy-Aware, Hardware-in-the-Loop LLM Adaptive Runtime & Proxy Middleware
+### A local OpenAI-compatible LLM proxy with private, feedback-guided adaptation
 
 [![CI](https://github.com/kathait-sarthak/VoltInfer/actions/workflows/ci.yml/badge.svg)](https://github.com/kathait-sarthak/VoltInfer/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 22 Passed](https://img.shields.io/badge/Tests-22%20Passed-brightgreen.svg)](#-automated-tests)
 [![API: OpenAI Compatible](https://img.shields.io/badge/API-OpenAI%20Compatible-green.svg)](https://platform.openai.com/docs/api-reference)
 [![Software: Desktop GUI + CLI](https://img.shields.io/badge/Software-Desktop%20GUI%20%2B%20CLI-purple.svg)](#-desktop-control-center-gui)
 
-> **VoltInfer** bridges the mismatch between heavy neural network compute and physical hardware constraints (thermal limits, battery drain, high cloud GPU costs) by inserting **closed-loop hardware feedback** directly into the transformer layer execution pipeline and proxy middleware.
+> VoltInfer sits between an OpenAI-compatible client and an LLM server. It forwards requests and responses, reports local hardware telemetry, and can optionally learn which output-token profile users prefer. It does not currently rewrite hidden transformer layers or quantize arbitrary models.
 
 ---
 
 ## 🌟 Executive Summary & Product Vision
 
-Running 4B+ parameter LLMs on edge devices, laptops, and local developer workstations causes silicon core temperatures to spike to **85°C+**, fans to roar, and laptop batteries to drain in under 45 minutes. Standard LLM runtimes are **"hardware-blind"**—they execute all 36 transformer layers in FP16 even when the laptop is overheating or answering simple prompts.
+VoltInfer provides a local proxy at `http://127.0.0.1:8000`. Configure an OpenAI-compatible application to use that address, and set VoltInfer's upstream to a local server such as Ollama or LM Studio. Requests are passed through unchanged unless adaptive profiles are explicitly enabled.
 
-**VoltInfer** runs as a zero-config, low-overhead system background daemon proxy (`http://127.0.0.1:8000`) and native desktop software. It continuously monitors silicon telemetry (core temperature, CPU/GPU utilization, power draw, and battery level). When thermal stress rises or battery drops, VoltInfer **dynamically sheds transformer layers (e.g. Layer 36 down to Layer 18), applies INT8/INT4 quantization, and prunes KV-cache heads**.
+Adaptive profiles only adjust a request's output-token limit (`full`, `balanced`, or `efficient`). Local feedback can influence which profile is selected. Prompts and credentials are not written to the learning database. Models hosted by cloud APIs or local runtimes keep control of their internal layers, quantization, and KV cache; VoltInfer cannot change those internals through a generic API.
 
 ```
-                                  LAPTOP HARDWARE TELEMETRY
-                                  (CPU, GPU, Temp °C, Battery %)
-                                                │
-                                                ▼
-┌─────────────────────────┐   HTTP Proxy   ┌──────────────────────────┐   Closed-Loop   ┌──────────────────────────┐
-│ Any Client / AI App     │ ─────────────► │ VoltInfer Proxy Middleware│ ─────────────► │ Dynamic Layer Modulator  │
-│ (VS Code, Browser, API) │ ◄───────────── │ (http://127.0.0.1:8000)  │                │ • Early Exit (L18/L36)   │
-└─────────────────────────┘                └──────────────────────────┘                │ • INT4 / INT8 / FP16     │
-                                                                                       │ • KV-Head Pruning        │
-                                                                                       └──────────────────────────┘
+┌────────────────────────┐               ┌───────────────────────────┐               ┌─────────────────────────┐
+│ OpenAI-compatible      │ ────────────► │ VoltInfer Proxy           │ ────────────► │ Configured LLM server   │
+│ application            │ ◄──────────── │ Telemetry + local learning│ ◄──────────── │ (Ollama, LM Studio, etc.)│
+└────────────────────────┘               └───────────────────────────┘               └─────────────────────────┘
 ```
 
 ---
 
 ## ⚡ Key Features
 
-- **Hardware-in-the-Loop Telemetry (`engine/telemetry.py`)**: Asynchronous, thread-safe hardware sampling of CPU/GPU utilization, silicon core temperature (°C), thermal headroom %, power draw (Watts), and battery percentage. Includes controllable synthetic thermal profiles (`PEAK_PERFORMANCE`, `NORMAL`, `THERMAL_THROTTLING`, `BATTERY_SAVER`).
-- **Context Complexity & Token Entropy Engine (`engine/layer_skipper.py`)**: Evaluates Shannon entropy, syntactic structure density (code/math markers), and reasoning keywords.
-- **Zero-Dependency Native GGUF Binary Parser (`engine/model_loader.py`)**: Reads model file headers directly from GGUF binary files (`.gguf` on USB Pendrives, Llamafile servers, or HuggingFace PyTorch folders) without requiring external C++ compilers.
-- **OpenAI-Compatible Proxy Server (`engine/proxy.py`)**: Drop-in API middleware exposing `/v1/chat/completions`, `/v1/completions`, `/v1/telemetry`, and `/v1/model/info`.
-- **Desktop Software Control Center (`voltinfer_gui.py` / `run_voltinfer_gui.bat`)**: Zero-dependency native desktop software control center with live hardware gauges, server controls, stress profile switcher, and 1-click dashboard launcher.
+- **Hardware telemetry (`engine/telemetry.py`)**: Asynchronous CPU, memory, and battery sampling where available. Temperature comes from a CPU sensor where supported; otherwise temperature, GPU load, VRAM, and power are clearly marked estimates. Includes synthetic test profiles.
+- **OpenAI-compatible forwarding (`engine/upstream.py`)**: Forwards API calls, authorization, error responses, and streaming responses to the configured upstream. Supports `http` and `https`.
+- **Private local learning (`engine/learning.py`)**: Stores request timing, token counts, profile selection, and optional 1–5 ratings in a local SQLite database. It never stores prompt text or API keys.
+- **Opt-in output profiles**: `full` retains the requested token limit, `balanced` caps it at 75%, and `efficient` caps it at 50%. The profile is applied only when adaptive mode is requested or enabled. User feedback can guide profile selection after there are enough ratings.
+- **Demo and experimental local inference (`engine/layer_skipper.py`, `engine/model_loader.py`)**: Without an upstream or supported local runtime, inference uses synthetic demonstration responses. Optional local model loading is experimental; it does not apply the advertised layer, quantization, or KV-cache changes.
+- **Local model inspection (`engine/model_loader.py`)**: Includes experimental GGUF metadata parsing and optional runtime integrations; metadata inspection alone does not load or accelerate a model.
+- **OpenAI-compatible local API (`engine/proxy.py`)**: Exposes the configured upstream API plus VoltInfer endpoints such as `/v1/telemetry`, `/v1/learning/status`, and `/v1/model/info`.
+- **Desktop Software Control Center (`voltinfer_gui.py` / `run_voltinfer_gui.bat`)**: Tkinter desktop control center with hardware gauges, upstream configuration, server controls, and a dashboard launcher.
 - **Unified CLI Tool (`voltinfer`)**: Console commands (`voltinfer start`, `voltinfer bench`, `voltinfer status`, `voltinfer app`).
-- **Interactive Glassmorphism Dashboard (`dashboard/`)**: Web visualizer running at `http://127.0.0.1:8000` with 36-layer execution grid, side-by-side comparison, and micro-delta metrics ($\Delta \text{Latency}$, $\Delta \text{Power}$, $\Delta \text{Joules}$, $\Delta \text{Heat avoided}$).
-- **Automated Test Suite (`tests/`)**: 22 unit & integration tests validating all hardware, modulation, proxy, and benchmark modules.
+- **Interactive Dashboard (`dashboard/`)**: Local visualizer served at `http://127.0.0.1:8000`.
+- **Automated Test Suite (`tests/`)**: Unit and integration tests include forwarding against a mock LLM service, adaptive request behavior, and local feedback storage.
 
 ---
 
-## 📊 Benchmark Metrics (Qwen 3/4B GGUF Model)
+## 📊 Benchmarking
 
-| Scenario               | Core Temp (°C) | Executed Layers | Precision | KV Heads | Latency | Energy Saved (%) |
-| :--------------------- | :------------: | :-------------: | :-------: | :------: | :-----: | :--------------: |
-| **Cool Headroom**      |    36.0 °C     |     32 / 36     |   FP16    | 28 / 32  | 0.010s  | **95.0% Saved**  |
-| **Normal Operating**   |    48.0 °C     |     30 / 36     |   INT8    | 26 / 32  | 0.010s  | **95.0% Saved**  |
-| **Thermal Throttling** |    82.5 °C     |     22 / 36     |   INT4    | 16 / 32  | 0.010s  | **95.0% Saved**  |
-| **Low Battery Saver**  |    65.0 °C     |     23 / 36     |   INT8    | 18 / 32  | 0.010s  | **95.0% Saved**  |
-
-- **Total Energy Conserved**: **1,158.96 Joules** (**98.8% Saved**)
-- **Max Execution Speedup**: Up to **64.8x acceleration** during thermal throttling stress.
+The existing benchmark command exercises the demo policy and uses modeled energy estimates. It is useful for testing policy code, but its output is **not a measured energy saving or real-model speedup**. For a meaningful performance comparison, benchmark the same model, prompts, and hardware directly against the upstream runtime; report measured wall time and power separately.
 
 ---
 
 ## 🚀 Quick Start & Software Usage
 
-### Download the Windows Demo
+### Install on Windows
 
-**[Download VoltInfer Demo for Windows](https://github.com/kathait-sarthak/VoltInfer/releases/latest/download/voltinfer-windows-x64.exe)** (Windows 10/11, x64). No Python installation is needed. [View all releases](https://github.com/kathait-sarthak/VoltInfer/releases).
+Download **`VoltInfer-Setup.exe`** from the [latest GitHub release](https://github.com/kathait-sarthak/VoltInfer/releases/latest) and run it. The installer adds Start Menu shortcuts and does not include or download an LLM model. If the installer is not attached to the latest release yet, the portable `voltinfer-windows-x64.exe` is also available on that release page.
 
-Open PowerShell in the download folder and run:
+To run the portable executable without installing it, download `voltinfer-windows-x64.exe` from that release, open PowerShell in the download folder, and run:
 
 ```powershell
-.\voltinfer-windows-x64.exe --help
-.\voltinfer-windows-x64.exe start
+.\voltinfer-windows-x64.exe start --upstream-url http://localhost:11434/v1
 ```
 
-The executable includes the web dashboard and supports `start`, `bench`, `status`, and `app`. Each version tag pushed to GitHub builds and publishes this demo executable automatically.
+The installed app is available from the Start Menu. The installer and portable executable support the `start`, `bench`, `status`, and `app` commands. New tagged releases build both the portable executable and Windows installer. Configure `VOLTINFER_UPSTREAM_API_KEY` only when connecting to a trusted upstream that requires authentication.
 
 ### Option A: One-Click Desktop Software (Windows)
 
-Double-click **`run_voltinfer_gui.bat`** to start the native Desktop Control Center, or double-click **`run_voltinfer.bat`** to start the server and open the browser dashboard automatically!
+Launch **VoltInfer Desktop** from the Start Menu, enter an OpenAI-compatible upstream URL (for example `http://localhost:11434/v1`), then start the proxy. The `.bat` launchers are for running from a source checkout.
 
 ### Option B: Install as Python Package & CLI
 
@@ -91,13 +78,16 @@ pip install -e .
 Now you can use the `voltinfer` command anywhere:
 
 ```bash
-# Start proxy server and launch web dashboard
-voltinfer start
+# Start a proxy for an Ollama OpenAI-compatible endpoint
+voltinfer start --upstream-url http://localhost:11434/v1
+
+# Optionally enable adaptive output profiles
+voltinfer start --upstream-url http://localhost:11434/v1 --adaptive
 
 # Or launch the native Desktop Control Center GUI
 voltinfer app
 
-# Run automated side-by-side benchmarks
+# Run demo-policy benchmarks (modeled estimates)
 voltinfer bench
 
 # Check live hardware telemetry of running server
@@ -120,7 +110,7 @@ Run the test suite with pytest:
 python -m pytest -v
 ```
 
-All 22 unit & integration tests pass with 100% test coverage.
+Tests cover the proxy, adaptive profiles, telemetry, and local feedback storage. No model download is needed for the test suite.
 
 ---
 
@@ -132,13 +122,34 @@ All 22 unit & integration tests pass with 100% test coverage.
 curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "volt-infer-adaptive-v1",
+    "model": "qwen3:4b",
     "messages": [{"role": "user", "content": "Explain energy efficiency in transformer architectures."}],
     "max_tokens": 120
   }'
 ```
 
-_Response includes standard OpenAI ChatCompletion structure plus extra `volt_infer_telemetry` energy breakdown._
+The upstream response body is passed through unchanged. Set your OpenAI-compatible client base URL to `http://127.0.0.1:8000/v1`.
+
+To opt a single request into an output profile, add VoltInfer's local-only extension:
+
+```json
+{
+  "model": "qwen3:4b",
+  "messages": [{"role": "user", "content": "Summarize this document."}],
+  "max_tokens": 400,
+  "voltinfer": {"adaptive": true, "profile": "balanced"}
+}
+```
+
+VoltInfer removes the extension before forwarding. `balanced` caps `max_tokens` at 75% of the requested limit. The upstream response includes `X-VoltInfer-Request-ID`; submit a rating to train future profile selection:
+
+```bash
+curl http://127.0.0.1:8000/v1/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"request_id": "ID_FROM_RESPONSE_HEADER", "rating": 5}'
+```
+
+`rating` must be from 1 to 5. Adaptive profiles are not applied unless enabled at startup or requested on that individual call. They only affect output-token limits; they do not alter model layers or quantization.
 
 ### `GET /v1/telemetry`
 
@@ -156,17 +167,20 @@ _Response includes standard OpenAI ChatCompletion structure plus extra `volt_inf
 }
 ```
 
+### `GET /v1/learning/status`
+
+Shows aggregate local request counts, latency, and optional ratings. The SQLite database stores no prompts or API keys. On Windows it is under `%LOCALAPPDATA%\VoltInfer`; set `VOLTINFER_DATA_DIR` to change the storage directory. Set `VOLTINFER_DISABLE_LEARNING=1` or start with `--no-learning` to disable storage.
+
 ### `GET /v1/model/info`
 
 ```json
 {
   "status": "online",
   "model": {
-    "is_loaded": true,
-    "backend_type": "GGUF Native (QWEN3)",
-    "model_name": "qwen3-4b-thinking-2507.Q4_K_M.gguf",
-    "total_layers": 36,
-    "context_length": 262144
+    "upstream_configured": true,
+    "backend_type": "OPENAI_COMPATIBLE_UPSTREAM",
+    "upstream_url": "http://localhost:11434/v1",
+    "adaptive_profiles": ["full", "balanced", "efficient"]
   }
 }
 ```
@@ -175,9 +189,9 @@ _Response includes standard OpenAI ChatCompletion structure plus extra `volt_inf
 
 ## 💼 Business & Product Roadmap
 
-1. **B2C Freemium Utility**: 1-click downloadable desktop installer for laptop users and developers.
-2. **B2B Enterprise License**: Deployable background service for enterprise teams using local LLMs on company hardware to reduce battery degradation and laptop replacement cycles.
-3. **B2B Silicon OEM Integration**: Pre-installed hardware partner licensing with laptop manufacturers (Dell, Lenovo, ASUS) and NPU/chip makers (Intel, AMD, Nvidia).
+1. **Runtime-specific controls**: Add explicit adapters for supported local runtimes before claiming layer or quantization control.
+2. **Measured efficiency**: Validate power and quality trade-offs on real hardware and publish repeatable benchmarks.
+3. **Installers and platform support**: Expand signed installers beyond the current Windows x64 build.
 
 ---
 
@@ -191,8 +205,10 @@ VoltInfer/
 │   ├── __init__.py         # Package initialization & warning suppression
 │   ├── cli.py              # Unified CLI entry point ('voltinfer')
 │   ├── telemetry.py        # Asynchronous hardware sampler & stress simulator
-│   ├── model_loader.py     # Zero-dependency GGUF binary parser & backend loader
-│   ├── layer_skipper.py    # Shannon entropy evaluator & Dynamic Layer Modulator
+│   ├── model_loader.py     # Experimental GGUF metadata parsing and optional loaders
+│   ├── upstream.py         # OpenAI-compatible upstream request forwarding
+│   ├── learning.py         # Local-only metrics and feedback-guided profiles
+│   ├── layer_skipper.py    # Demo policy and synthetic inference responses
 │   └── proxy.py            # OpenAI-compatible ThreadingHTTPServer & static file host
 ├── bench/
 │   ├── __init__.py
@@ -208,6 +224,7 @@ VoltInfer/
 │   ├── test_proxy.py       # API endpoints & proxy integration tests
 │   └── test_benchmark.py   # Automated benchmark verification tests
 ├── voltinfer_gui.py        # Desktop Software Control Center GUI (tkinter)
+├── installer.iss           # Windows installer definition
 ├── run_voltinfer.bat       # One-click Windows runner (Server + Browser)
 ├── run_voltinfer_gui.bat   # One-click Windows runner (Desktop Control Center)
 ├── pyproject.toml          # PEP 517/518 build configuration & metadata

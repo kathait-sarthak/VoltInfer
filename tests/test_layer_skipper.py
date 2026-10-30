@@ -65,6 +65,18 @@ def test_hardware_pressure():
     assert p_hot > 0.6
 
 
+def test_hardware_pressure_ignores_estimated_temperature_and_gpu():
+    modulator = DynamicLayerModulator()
+    low_estimate = make_mock_state(temp_c=35.0, headroom=1.0, cpu=50.0, gpu=0.0)
+    high_estimate = make_mock_state(temp_c=100.0, headroom=0.0, cpu=50.0, gpu=100.0)
+    low_estimate.estimated_metrics = ("temperature_c", "gpu_utilization")
+    high_estimate.estimated_metrics = ("temperature_c", "gpu_utilization")
+
+    assert modulator.compute_hardware_pressure(low_estimate) == (
+        modulator.compute_hardware_pressure(high_estimate)
+    )
+
+
 def test_modulation_profile_layer_shedding():
     modulator = DynamicLayerModulator()
     

@@ -1,15 +1,11 @@
-"""
-VoltInfer Telemetry & Hardware Reader Module
-Samples real-time hardware telemetry (CPU, GPU, RAM, VRAM, thermal headroom, battery state)
-and provides asynchronous thread-safe state access with synthetic hardware pressure controls.
-"""
+"""Hardware telemetry sampler with explicit markers for estimated and simulated metrics."""
 
 from dataclasses import dataclass, asdict
 import threading
 import time
 import math
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 try:
     import psutil
@@ -44,11 +40,13 @@ class HardwareState:
     timestamp: float              # UNIX timestamp
     is_simulated: bool            # True if synthetic/overridden
     simulation_mode: str          # REALTIME, SIMULATED, HYBRID
+    estimated_metrics: Tuple[str, ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to serializable dictionary."""
         d = asdict(self)
         d['thermal_headroom_pct'] = round(self.thermal_headroom * 100, 1)
+        d["estimated_metrics"] = list(self.estimated_metrics)
         return d
 
 
@@ -197,6 +195,7 @@ class TelemetryMonitor:
     def _read_hardware(self) -> HardwareState:
         """Gather combined system and simulated metrics."""
         now = time.time()
+        cpu_temperature = self._read_cpu_temperature()
 
         # 1. CPU & RAM Metrics
         if HAS_PSUTIL:
@@ -242,15 +241,20 @@ class TelemetryMonitor:
         # 3. Thermal Dynamics Calculation
         if self._sim_temperature is not None:
             target_temp = self._sim_temperature
+        elif cpu_temperature is not None:
+            target_temp = cpu_temperature
         else:
-            # Thermal accumulation model based on CPU+GPU load
+            # This fallback is a load-based estimate, not a sensor reading.
             combined_load = (cpu_util * 0.4 + gpu_util * 0.6) / 100.0
             target_temp = T_IDLE + combined_load * (T_MAX - T_IDLE)
 
-        # Apply smooth thermal inertia (heat dissipation delay)
-        alpha = 0.15 # Smoothing factor
-        self._smoothed_temp += alpha * (target_temp - self._smoothed_temp)
-        current_temp = round(self._smoothed_temp, 1)
+        if cpu_temperature is not None and self._sim_temperature is None:
+            current_temp = round(cpu_temperature, 1)
+            self._smoothed_temp = current_temp
+        else:
+            # Apply smooth thermal inertia to estimated or simulated temperature.
+            self._smoothed_temp += 0.15 * (target_temp - self._smoothed_temp)
+            current_temp = round(self._smoothed_temp, 1)
 
         # Thermal headroom formula: 1.0 (Cool / 38°C) to 0.0 (Hot / 85°C+)
         thermal_headroom = max(0.0, min(1.0, (T_MAX - current_temp) / (T_MAX - T_IDLE)))
@@ -284,8 +288,45 @@ class TelemetryMonitor:
             power_plugged=power_plugged,
             timestamp=now,
             is_simulated=is_sim,
-            simulation_mode=self._sim_mode
+            simulation_mode=self._sim_mode,
+            estimated_metrics=tuple(
+                name
+                for name, estimated in (
+                    ("cpu_utilization", not HAS_PSUTIL and self._sim_cpu_util is None),
+                    ("ram_utilization", not HAS_PSUTIL),
+                    ("battery_percent", not HAS_PSUTIL and self._sim_battery_pct is None),
+                    ("gpu_utilization", self._sim_gpu_util is None),
+                    ("vram_utilization", True),
+                    (
+                        "temperature_c",
+                        cpu_temperature is None and self._sim_temperature is None,
+                    ),
+                    ("power_draw_w", True),
+                )
+                if estimated
+            ),
         )
+
+    @staticmethod
+    def _read_cpu_temperature() -> Optional[float]:
+        if not HAS_PSUTIL or not hasattr(psutil, "sensors_temperatures"):
+            return None
+        try:
+            sensors = psutil.sensors_temperatures()
+        except (OSError, NotImplementedError):
+            return None
+
+        candidates = []
+        for name, readings in sensors.items():
+            sensor_name = name.lower()
+            if not any(marker in sensor_name for marker in ("cpu", "coretemp", "k10temp", "cpu_thermal")):
+                continue
+            candidates.extend(
+                reading.current
+                for reading in readings
+                if reading.current is not None and 0.0 < reading.current < 130.0
+            )
+        return max(candidates) if candidates else None
 
 
 if __name__ == "__main__":

@@ -45,6 +45,10 @@ def test_telemetry_monitor_sampling():
     assert 0.0 <= state.thermal_headroom <= 1.0
     assert state.cpu_utilization >= 0.0
     assert state.ram_total_gb > 0.0
+    assert "gpu_utilization" in state.estimated_metrics
+    assert "vram_utilization" in state.estimated_metrics
+    assert "power_draw_w" in state.estimated_metrics
+    assert isinstance(state.to_dict()["estimated_metrics"], list)
 
     monitor.stop()
 

@@ -77,7 +77,7 @@ class VoltInferDesktopApp:
 
         # Telemetry Card Frame
         telemetry_frame = tk.LabelFrame(
-            body, text=" 📊 Silicon Hardware Telemetry ", font=("Segoe UI", 10, "bold"),
+            body, text=" 📊 Hardware Telemetry (some estimates) ", font=("Segoe UI", 10, "bold"),
             fg="#00f0ff", bg="#131b2e", padx=15, pady=12, relief="ridge"
         )
         telemetry_frame.pack(fill="x", pady=(0, 15))
@@ -92,7 +92,7 @@ class VoltInferDesktopApp:
         # Gauge 1: Temperature
         g1 = tk.Frame(grid, bg="#1a233a", padx=10, pady=8, relief="groove")
         g1.grid(row=0, column=0, padx=5, sticky="ew")
-        tk.Label(g1, text="CORE TEMP", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
+        tk.Label(g1, text="TEMP (SENSOR / EST.)", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
         self.lbl_temp = tk.Label(g1, text="-- °C", font=("Segoe UI", 16, "bold"), fg="#00ff9d", bg="#1a233a")
         self.lbl_temp.pack()
         self.lbl_headroom = tk.Label(g1, text="-- Headroom", font=("Segoe UI", 8), fg="#6ee7b7", bg="#1a233a")
@@ -101,7 +101,7 @@ class VoltInferDesktopApp:
         # Gauge 2: Power Draw
         g2 = tk.Frame(grid, bg="#1a233a", padx=10, pady=8, relief="groove")
         g2.grid(row=0, column=1, padx=5, sticky="ew")
-        tk.Label(g2, text="POWER DRAW", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
+        tk.Label(g2, text="ESTIMATED POWER", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
         self.lbl_power = tk.Label(g2, text="-- W", font=("Segoe UI", 16, "bold"), fg="#fbbf24", bg="#1a233a")
         self.lbl_power.pack()
         self.lbl_power_mode = tk.Label(g2, text="AC Powered", font=("Segoe UI", 8), fg="#9ca3af", bg="#1a233a")
@@ -110,7 +110,7 @@ class VoltInferDesktopApp:
         # Gauge 3: CPU / GPU Load
         g3 = tk.Frame(grid, bg="#1a233a", padx=10, pady=8, relief="groove")
         g3.grid(row=0, column=2, padx=5, sticky="ew")
-        tk.Label(g3, text="CPU / GPU LOAD", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
+        tk.Label(g3, text="CPU / EST. GPU LOAD", font=("Segoe UI", 8, "bold"), fg="#9ca3af", bg="#1a233a").pack()
         self.lbl_load = tk.Label(g3, text="--% / --%", font=("Segoe UI", 14, "bold"), fg="#38bdf8", bg="#1a233a")
         self.lbl_load.pack()
         self.lbl_ram = tk.Label(g3, text="RAM: -- GB", font=("Segoe UI", 8), fg="#9ca3af", bg="#1a233a")
@@ -147,6 +147,35 @@ class VoltInferDesktopApp:
             relief="flat", padx=10, pady=2, command=self._browse_model
         )
         btn_browse.pack(side="right")
+
+        row_upstream = tk.Frame(cfg_frame, bg="#131b2e")
+        row_upstream.pack(fill="x", pady=4)
+        tk.Label(
+            row_upstream,
+            text="OpenAI-compatible upstream:",
+            font=("Segoe UI", 9),
+            fg="#e5e7eb",
+            bg="#131b2e",
+        ).pack(side="left")
+        self.entry_upstream = tk.Entry(
+            row_upstream,
+            font=("Segoe UI", 9),
+            bg="#1f2937",
+            fg="#f3f4f6",
+            insertbackground="#00f0ff",
+        )
+        self.entry_upstream.pack(side="left", fill="x", expand=True, padx=8)
+        self.entry_upstream.insert(0, os.environ.get("VOLTINFER_UPSTREAM_URL", ""))
+        self.adaptive_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            row_upstream,
+            text="Adaptive profiles",
+            variable=self.adaptive_var,
+            fg="#e5e7eb",
+            bg="#131b2e",
+            activebackground="#131b2e",
+            selectcolor="#1f2937",
+        ).pack(side="right")
 
         # Profile Injection Row
         row2 = tk.Frame(cfg_frame, bg="#131b2e")
@@ -245,8 +274,24 @@ class VoltInferDesktopApp:
         path_str = self.entry_model.get().strip()
         model_path = path_str if os.path.exists(path_str) else None
 
-        self.proxy_server = VoltInferProxyServer(host="127.0.0.1", port=8000, model_path=model_path)
-        self.proxy_server.start(block=False)
+        upstream_url = self.entry_upstream.get().strip() or None
+        try:
+            self.proxy_server = VoltInferProxyServer(
+                host="127.0.0.1",
+                port=8000,
+                model_path=model_path,
+                upstream_url=upstream_url,
+                upstream_api_key=os.environ.get("VOLTINFER_UPSTREAM_API_KEY"),
+                adaptive=self.adaptive_var.get(),
+            )
+            self.proxy_server.start(block=False)
+        except (OSError, ValueError) as error:
+            if self.proxy_server:
+                self.proxy_server.stop()
+            self.proxy_server = None
+            messagebox.showerror("Could not start VoltInfer", str(error))
+            self._log(f"Could not start proxy server: {error}")
+            return
         self.is_running = True
 
         self.status_badge.config(text="● RUNNING (Port 8000)", fg="#34d399", bg="#064e3b")
@@ -254,6 +299,10 @@ class VoltInferDesktopApp:
         self.btn_stop.config(state="normal")
 
         self._log("VoltInfer Proxy Server listening on http://127.0.0.1:8000")
+        if self.proxy_server.upstream:
+            self._log(f"Forwarding LLM requests to {self.proxy_server.upstream.base_url}")
+        else:
+            self._log("No LLM upstream configured; inference endpoints are in demo mode.")
         self._log("OpenAI endpoints: /v1/chat/completions, /v1/telemetry")
 
     def stop_server(self):
